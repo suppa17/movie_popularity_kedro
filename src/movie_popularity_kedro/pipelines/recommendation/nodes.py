@@ -2,6 +2,9 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+
+import numpy as np
+
 def create_movie_features(merged_data: pd.DataFrame) -> pd.DataFrame:
     """Create movie features for recommendation."""
     # Get unique movies with their features
@@ -12,46 +15,40 @@ def create_movie_features(merged_data: pd.DataFrame) -> pd.DataFrame:
     
     return movies
 
-def generate_recommendations(movies: pd.DataFrame, user_ratings: pd.DataFrame) -> pd.DataFrame:
+def generate_recommendations(movie_id: int, movies: pd.DataFrame, cosine_sim: np.ndarray) -> pd.DataFrame:
     """Generate movie recommendations for a user."""
-    # Create TF-IDF features
-    tfidf = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = tfidf.fit_transform(movies['features'])
+    # Ensure the movie_id exists
+    if movie_id not in movies["movieId"].values:
+        raise ValueError(f"Movie ID {movie_id} not found in dataset.")
+
+    # Get the row index for the given movieId
+    idx_series = movies[movies["movieId"] == movie_id].index
+    if idx_series.empty:
+        raise ValueError(f"No index found for movie ID {movie_id}")
+    idx = idx_series[0]
+
+    # Check if index is in bounds for cosine_sim matrix
+    if idx >= cosine_sim.shape[0]:
+        raise ValueError(f"Index {idx} is out of bounds for cosine_sim (shape={cosine_sim.shape})")
+
+    # Proceed with similarity ranking
+    sim_scores = list(enumerate(cosine_sim[idx]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+    movie_indices = [i[0] for i in sim_scores[1:11]]  # Get top 10 similar movies (excluding itself)
+
+    # Get the recommended movies
+    recommended_movies = movies.iloc[movie_indices][['movieId', 'title', 'genres', 'year']]
     
-    # Calculate cosine similarity
-    cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+    return recommended_movies
+
+from sklearn.metrics.pairwise import cosine_similarity
+
+def compute_cosine_similarity(movies: pd.DataFrame) -> np.ndarray:
+    """Compute cosine similarity between movies based on their genres."""
+    # Create genre features
+    genre_features = movies["genres"].str.get_dummies(sep="|")
     
-    # Get movies the user has rated highly (>= 4.0)
-    user_liked_movies = user_ratings[user_ratings['rating'] >= 4.0]['movieId'].unique()
+    # Compute cosine similarity
+    cosine_sim = cosine_similarity(genre_features)
     
-    # Get recommendations
-    recommendations = []
-    for movie_id in user_liked_movies:
-        # Get the index of the movie
-        idx = movies[movies['movieId'] == movie_id].index[0]
-        
-        # Get similarity scores
-        sim_scores = list(enumerate(cosine_sim[idx]))
-        
-        # Sort movies by similarity score
-        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-        
-        # Get top 5 similar movies
-        sim_scores = sim_scores[1:6]  # Skip the movie itself
-        
-        # Get movie indices
-        movie_indices = [i[0] for i in sim_scores]
-        
-        # Add recommendations
-        for idx in movie_indices:
-            recommendations.append({
-                'movieId': movies.iloc[idx]['movieId'],
-                'title': movies.iloc[idx]['title'],
-                'genres': movies.iloc[idx]['genres'],
-                'year': movies.iloc[idx]['year']
-            })
-    
-    # Convert to DataFrame and remove duplicates
-    recommendations_df = pd.DataFrame(recommendations).drop_duplicates()
-    
-    return recommendations_df 
+    return cosine_sim

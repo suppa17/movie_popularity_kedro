@@ -14,10 +14,11 @@ def register_pipelines() -> dict[str, Pipeline]:
     data_engineering_pipeline = data_engineering.create_pipeline()
     recommendation_pipeline = recommendation.create_pipeline()
     
-    pipelines = {
+    # Create a combined pipeline that runs data engineering first, then recommendation
+    combined_pipeline = data_engineering_pipeline + recommendation_pipeline
+    
+    return {
         "data_engineering": data_engineering_pipeline,
         "recommendation": recommendation_pipeline,
-        "__default__": data_engineering_pipeline + recommendation_pipeline,
+        "__default__": combined_pipeline,  # This will run both pipelines in sequence
     }
-    
-    return pipelines

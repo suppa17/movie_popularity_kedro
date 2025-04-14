@@ -1,5 +1,5 @@
 from kedro.pipeline import Pipeline, node, pipeline
-from .nodes import create_movie_features, generate_recommendations
+from .nodes import create_movie_features, generate_recommendations, compute_cosine_similarity
 
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(
@@ -11,10 +11,16 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="create_movie_features_node",
             ),
             node(
-                func=generate_recommendations,
-                inputs=["movie_features", "ratings"],
-                outputs="movie_recommendations",
-                name="generate_recommendations_node",
+                func=compute_cosine_similarity,
+                inputs="movie_features",
+                outputs="cosine_sim",
+                name="compute_cosine_similarity_node"
             ),
+            node(
+                func=generate_recommendations,
+                inputs=["params:movie_id", "movie_features", "cosine_sim"],
+                outputs="recommendations",
+                name="generate_recommendations_node"
+            )
         ]
     ) 

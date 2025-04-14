@@ -12,3 +12,14 @@ ratings:
 
 model_metrics:
   type: MemoryDataset
+
+movie_features:
+  type: MemoryDataset
+
+cosine_sim:
+  type: MemoryDataset
+
+recommendations:
+  type: MemoryDataset
+
+  
